@@ -1,0 +1,514 @@
+import matplotlib.pyplot as plt
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import numpy as np
+import matplotlib.tri as tri 
+import math
+from sklearn.linear_model import LinearRegression  
+import seaborn as sns
+import statsmodels.formula.api as sm
+data_all_year=[]
+'''
+取每年資料
+'''
+BBCF=[0.547,0.560,0.557,0.568,0.575,0.560,0.562,0.563,0.568] #恢復係數數據 2010 2013-2020
+bbcf={'2010':0.547,'2013':0.560,'2014':0.557,'2015':0.568,'2016':0.575,'2017':0.560,'2018':0.562,'2019':0.563,'2020':0.568}
+all_data_FIP=pd.DataFrame()
+all_data_ERA=pd.DataFrame()
+all_data_BB9=pd.DataFrame()
+all_data_K9=pd.DataFrame()
+all_data_eragroup=pd.DataFrame()
+all_data_fipgroup=pd.DataFrame()
+fip_avg=[]
+era_avg=[]
+bb9_avg=[]
+k9_avg=[]
+def ydata(y):
+    global all_data #在def裡面global 不然會出錯
+    global all_data_FIP
+    global all_data_ERA
+    global all_data_BB9
+    global all_data_K9
+    global all_data_eragroup
+    global all_data_fipgroup
+    global fip_avg
+    global era_avg
+    global bb9_avg
+    global k9_avg
+    data=pd.DataFrame()
+    for i in range(1,7):
+        url='http://www.cpbl.com.tw/stats/all.html?year='+str(y)+'&game_type=01&stat=ppit&online=0&sort=G&order=desc&per_page='+str(i) #中職網站
+        html = requests.get(url)
+        html.encoding = 'UTF-8' #要記得換 不然會變亂碼
+        sp = BeautifulSoup(html.text,'lxml')
+        rows=sp.find_all('tr') #找到資料板塊
+        ###找出rows底下所有的td 並且合併
+        ad=[]
+        for row in rows: #在rows 一個一個 的找
+            cols=row.find_all('td') #從每個row 去找td
+            cols=[x.text.strip() for x in cols] #從每個cols 去轉成text
+            ad.append(cols) #把每個text 合併回去 又變回row
+        ad=pd.DataFrame(ad) #轉成dataframe
+        ad.drop(0,axis=0,inplace=True) #刪掉第一行 
+        data=data.append(ad) #把每個row合併 又變回rows
+    '''
+    預處理每年資料
+    '''
+    data=data.rename(columns={1:'name',2:'G',3:'GS',4:'GR',5:'CG',6:'SHO',7:'NBB',8:'W',9:'L',10:'SV',11:'BS',12:'HLD',13:'IP',14:'WHIP',15:'ERA',16:'BF',
+                              17:'NP',18:'H',19:'HR',20:'BB',21:'IBB',22:'HBP',23:'SO',24:'WP',25:'BK',26:'R',27:'ER',28:'GO',29:'AO',30:'G/F'})
+    data=data.drop(['name'], axis =1) #丟掉名字
+    data=pd.DataFrame(data,dtype=np.float) #裡面是字串 要轉
+    data=data[data['IP'] > 25] #選取IP大於20的值
+    data=data.reset_index() #一定要重設index 不然後面資料匯進去會亂掉
+    data=data.drop(['index'], axis =1) #將time drop掉
+    data=data[np.abs(data['ERA']-data['ERA'].mean())<=(3*data['ERA'].std())] #砍掉離群直
+    '''
+    FIP
+    '''
+    #每年FIP 丟進data
+    data['FIP']=((data['HR']*13+(data['BB']+data['HBP'])*3-data['SO']*2)/data['IP'])+3.2 
+    #全部年分FIP
+    FIP=data['FIP'].rename(str(y),inplace=True) #改列名
+    FIP=pd.DataFrame(FIP) 
+    FIP=FIP.reset_index() #一定要重設index 才能夠合併
+    FIP=FIP.drop(['index'], axis =1) #將time drop掉
+    all_data_FIP=all_data_FIP.join(FIP, how='outer') #用JOIN來合併資料 OUTTER為聯集
+    fipavg=sum(data['FIP'])/len(data) #當年平均FIP
+    fip_avg += [fipavg] #把每年丟進list
+    '''
+    FIP分群
+    '''
+    #每年fipgroup 丟進fata
+    fip_group=[]  #將每年的資料放到這個矩陣
+    for n in data['FIP']:  #n為各年中的元素
+        if n<np.percentile(data['FIP'],25,axis=0):  #找出小於第一四分位數的值
+            fip_group.append(1)  #將找出的值映為1
+        elif np.percentile(data['FIP'],25,axis=0)<n<np.percentile(data['FIP'],50,axis=0):  #找出介於第一二四分位數的值
+            fip_group.append(2)  #將找出的值映為2
+        elif np.percentile(data['FIP'],50,axis=0)<n<np.percentile(data['FIP'],75,axis=0):  #找出介於第二三四分位數的值
+            fip_group.append(3)  #將找出的值映為3
+        else:
+            fip_group.append(4)  #剩下的值映為4
+    fip_group=pd.DataFrame({'FIPgroup':fip_group})
+    data['FIPgroup']=fip_group['FIPgroup']
+
+    #全部年分fipgroup
+    fipgroup=data['FIPgroup'].rename(str(y),inplace=True) #改列名
+    fipgroup=pd.DataFrame(fipgroup) 
+    fipgroup=fipgroup.reset_index() #一定要重設index 才能夠合併
+    fipgroup=fipgroup.drop(['index'], axis =1) #將time drop掉
+    all_data_fipgroup=all_data_fipgroup.join(fipgroup, how='outer') #用JOIN來合併資料 OUTTER為聯集
+    '''
+    BB9
+    '''
+    #每年BB9 丟進data    
+    data['BB/9']=data['BB']/(data['IP']/9)
+    #全部年分BB9
+    BB9=data['BB/9'].rename(str(y),inplace=True) #改列名
+    BB9=pd.DataFrame(BB9) 
+    BB9=BB9.reset_index() #一定要重設index 才能夠合併
+    BB9=BB9.drop(['index'], axis =1) #將time drop掉
+    all_data_BB9=all_data_BB9.join(BB9, how='outer') #用JOIN來合併資料 OUTTER為聯集
+    bb9avg=sum(data['BB/9'])/len(data) #當年平均FIP
+    bb9_avg += [bb9avg] #把每年丟進list
+    '''
+    K9
+    '''
+    #每年K9 丟進data    
+    data['K/9']=data['SO']/(data['IP']/9)
+    #全部年分K9
+    K9=data['K/9'].rename(str(y),inplace=True) #改列名
+    K9=pd.DataFrame(K9) 
+    K9=K9.reset_index() #一定要重設index 才能夠合併
+    K9=K9.drop(['index'], axis =1) #將time drop掉
+    all_data_K9=all_data_K9.join(K9, how='outer') #用JOIN來合併資料 OUTTER為聯集
+    k9avg=sum(data['K/9'])/len(data) #當年平均K9
+    k9_avg += [k9avg] #把每年丟進list    
+    '''
+    ERA
+    '''
+    #ERA歸一化
+    data['ERA/MAX']=data['ERA']/max(data['ERA'])
+    #全部年分ERA
+    ERA=data['ERA'].rename(str(y),inplace=True) #改列名
+    ERA=pd.DataFrame(ERA) 
+    ERA=ERA.reset_index() #一定要重設index 才能夠合併
+    ERA=ERA.drop(['index'], axis =1) #將time drop掉
+    all_data_ERA=all_data_ERA.join(ERA, how='outer') #用JOIN來合併資料 OUTTER為聯集
+    eraavg=sum(data['ER'])/(sum(data['IP'])/9) #當年平均ERA
+    era_avg += [eraavg] #把每年丟進list
+    '''
+    ERA分群
+    '''
+    #每年eragroup 丟進fata
+    era_group=[]  #將每年的資料放到這個矩陣
+    for n in data['ERA']:  #n為各年中的元素
+        if n<np.percentile(data['ERA'],25,axis=0):  #找出小於第一四分位數的值
+            era_group.append(1)  #將找出的值映為1
+        elif np.percentile(data['ERA'],25,axis=0)<n<np.percentile(data['ERA'],50,axis=0):  #找出介於第一二四分位數的值
+            era_group.append(2)  #將找出的值映為2
+        elif np.percentile(data['ERA'],50,axis=0)<n<np.percentile(data['ERA'],75,axis=0):  #找出介於第二三四分位數的值
+            era_group.append(3)  #將找出的值映為3
+        else:
+            era_group.append(4)  #剩下的值映為4
+    era_group=pd.DataFrame({'ERAgroup':era_group})
+    data['ERAgroup']=era_group['ERAgroup']
+
+    #全部年分eragroup
+    eragroup=data['ERAgroup'].rename(str(y),inplace=True) #改列名
+    eragroup=pd.DataFrame(eragroup) 
+    eragroup=eragroup.reset_index() #一定要重設index 才能夠合併
+    eragroup=eragroup.drop(['index'], axis =1) #將time drop掉
+    all_data_eragroup=all_data_eragroup.join(eragroup, how='outer') #用JOIN來合併資料 OUTTER為聯集
+
+    '''
+    係數放入
+    '''
+    BBCF=pd.DataFrame({'BBCF':[bbcf[str(y)]]*len(data)})
+    data['BBCF']=BBCF['BBCF']
+    
+    '''
+    年分放入
+    '''
+    YEAR=pd.DataFrame({'YEAR':[y]*len(data)})
+    data['YEAR']=YEAR['YEAR']
+    
+    '''
+    HR9
+    '''
+    #每年HR9 丟進data    
+    data['HR/9']=data['HR']/(data['IP']/9)
+    '''
+    BB K 分群
+    '''
+    data['BB9_mean']=np.mean(data['BB/9'])
+    data['K9_mean']=np.mean(data['K/9'])
+    data['BB9_highlow'] = 100
+    data['K9_highlow'] = 100
+    data['level'] = 100
+    data.loc[data['BB/9'] < data['BB9_mean'], 'BB9_highlow'] = 1
+    data.loc[data['BB/9'] > data['BB9_mean'], 'BB9_highlow'] = -1
+    data.loc[data['K/9'] > data['K9_mean'], 'K9_highlow'] = 1
+    data.loc[data['K/9'] < data['K9_mean'], 'K9_highlow'] = -1
+    data.loc[(data['K/9'] > data['K9_mean']) & (data['BB/9'] > data['BB9_mean']), 'level'] = 1
+    data.loc[(data['K/9'] < data['K9_mean']) & (data['BB/9'] < data['BB9_mean']), 'level'] = 2
+    data.loc[(data['K/9'] > data['K9_mean']) & (data['BB/9'] < data['BB9_mean']), 'level'] = 3
+    data.loc[(data['K/9'] < data['K9_mean']) & (data['BB/9'] > data['BB9_mean']), 'level'] = 4
+    
+    data_all_year.append(data)
+    #return data    
+Year=[2010,2013,2014,2015,2016,2017,2018,2019,2020]
+for i in Year:
+    ydata(i)
+    
+'''
+FIP盒鬚圖 與 恢復係數關係
+'''
+BBCF=[0.547,0.560,0.557,0.568,0.575,0.560,0.562,0.563,0.568] #恢復係數數據 2010 2013-2020
+all_data_FIP=pd.DataFrame(all_data_FIP,dtype=np.float) #裡面字串 轉浮點
+fig, ax1 = plt.subplots() #空圖
+plt.title('Coff v.s FIP') #標題
+plt.xlabel('Year') #X軸名稱
+ax2 = ax1.twinx() #相同X軸 不同Y軸 畫在同一張圖
+###ax1###
+all_data_FIP.boxplot(column=['2010','2013','2014','2015','2016','2017','2018','2019','2020'],ax=ax1) #盒鬚圖 令ax為ax1
+ax1.set_ylabel('FIP', color='tab:blue') #y軸設置
+ax1.tick_params(axis='y', labelcolor='tab:blue') #刻度設定
+avg=ax1.plot(range(1,10),fip_avg,'g',marker='x',label='avg of FIP')
+###ax2###
+cor=ax2.plot(range(1,10),BBCF,'r',marker='o',label='coefficient of restitution') #range(1,10) 從X軸的第一個變數開始畫 不打圖會跑掉
+ax2.set_ylabel('Coff', color='black') #y軸設置
+ax2.tick_params(axis='y', labelcolor='black') #刻度設定
+axs = avg+cor
+labs = [l.get_label() for l in axs] #取圖例
+ax1.legend(axs, labs, loc=0)
+plt.show()
+
+'''
+ERA 盒鬚圖 與 恢復係數關係
+'''
+BBCF=[0.547,0.560,0.557,0.568,0.575,0.560,0.562,0.563,0.568] #恢復係數數據 2010 2013-2020
+all_data_ERA=pd.DataFrame(all_data_ERA,dtype=np.float) #裡面字串 轉浮點
+fig, ax1 = plt.subplots() #空圖
+plt.title('Coff v.s ERA') #標題
+plt.xlabel('Year') #X軸名稱
+ax2 = ax1.twinx() #相同X軸 不同Y軸 畫在同一張圖
+###ax1###
+all_data_ERA.boxplot(column=['2010','2013','2014','2015','2016','2017','2018','2019','2020'],ax=ax1) #盒鬚圖 令ax為ax1
+ax1.set_ylabel('ERA', color='tab:blue') #y軸設置
+ax1.tick_params(axis='y', labelcolor='tab:blue') #刻度設定
+avg=ax1.plot(range(1,10),era_avg,'g',marker='x',label='avg of ERA')
+###ax2###
+cor=ax2.plot(range(1,10),BBCF,'r',marker='o',label='coefficient of restitution') #range(1,10) 從X軸的第一個變數開始畫 不打圖會跑掉
+ax2.set_ylabel('Coff', color='black') #y軸設置
+ax2.tick_params(axis='y', labelcolor='black') #刻度設定
+axs = avg+cor
+labs = [l.get_label() for l in axs]
+ax1.legend(axs, labs, loc=0)
+plt.show()
+
+'''
+將全年資料合再一起
+'''
+d=pd.DataFrame()
+columns=['BB/9','K/9','HR/9','G/F','level','ERA','ERAgroup','FIP','FIPgroup','BBCF','YEAR','IP','WHIP']
+def mydata(j):
+    global d
+    c=pd.DataFrame()
+    for i in range(0,9):
+        a=data_all_year[i]
+        b=a[j]
+        b=b.dropna()
+        print(b)
+        b=b.T
+        c=c.append(b)
+
+        #c=pd.concat(c.iloc[:,i] for i in range(c.shape[1]))
+    c=c.T
+    print(c)
+    c=pd.concat(c.iloc[:,i] for i in range(c.shape[1]))
+    c.index=np.arange(len(c))
+    c=c.dropna()
+    d=d.join(c, how='outer')
+
+for j in columns:
+        mydata(j) 
+        
+
+
+
+'''
+全年資料分四群
+'''
+sddtest=pd.DataFrame({'BB/9':d['BB/9'],'K/9':d['K/9']})
+from sklearn.cluster import KMeans
+cluster = KMeans(n_clusters=4)
+cluster.fit(sddtest)
+label_pred = cluster.labels_
+# 繪製分類的直方圖
+#plt.xlabel('cluster group')
+#plt.ylabel('count')
+#bins = np.arange(0, 5, 0.5) # fixed bin size
+#plt.hist(cluster.labels_, bins=bins)
+#plt.show()
+
+x0 = sddtest[label_pred == 0]
+x1 = sddtest[label_pred == 1]
+x2 = sddtest[label_pred == 2]
+x3 = sddtest[label_pred == 3]
+plt.scatter(x0['BB/9'], x0['K/9'], c = "red", marker='o', label='label0')
+plt.scatter(x1['BB/9'], x1['K/9'], c = "green", marker='*', label='label1')
+plt.scatter(x2['BB/9'], x2['K/9'], c = "blue", marker='+', label='label2')
+plt.scatter(x3['BB/9'], x3['K/9'], c = "black", marker='.', label='label3')
+plt.xlabel('BB/9')
+plt.ylabel('K/9')
+plt.legend(loc=2)
+plt.show()
+d['newlabel']=label_pred
+
+'''
+四大板塊分布 盒鬚圖
+'''
+d1=d.groupby('YEAR')
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    a.boxplot(column='ERA',by='newlabel',ax=ax1) #kmean看ERA
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    a.boxplot(column='FIP',by='newlabel',ax=ax1) #kmean看FIP
+    
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    sns.boxplot(x='level',y='ERA',data=a,width=0.5,palette = "Set3")
+    ax1.set_title(str(Year[i])+"ERA")
+    sns.swarmplot(x='level',y='ERA',data=a, color = "red")    
+    plt.ylim(1, 10)
+plt.show()
+
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    sns.boxplot(x='level',y='FIP',data=a,width=0.5,palette = "Set3")
+    ax1.set_title(str(Year[i])+"FIP")
+    sns.swarmplot(x='level',y='FIP',data=a, color = "red") 
+    plt.ylim(1, 8)
+plt.show()
+'''
+四大板塊分布 直方圖 2010 2013-2020 加起來
+'''    
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)    
+def heatmap(ip):     
+        a=d[d['IP'] > ip] #選取IP大於20的值     
+        for i in (1,2,3,4):
+            aa=a.loc[(a['level'] == i)]
+            sns.distplot(aa['ERA'],label=i,bins=100)
+        plt.legend()
+for i in range(30,35,5):
+    heatmap(i)
+'''
+四大板塊分布 直方圖 2010 2013-2020 分開來
+'''    
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)    
+def heatmap(ip):
+    for i in range(0,9):
+        dd=d.groupby('YEAR')
+        a=dd.get_group(Year[i])      
+        a=a[a['IP'] > ip] #選取IP大於20的值     
+        plt.subplot(3,3,i+1)
+        for i in (1,2,3,4):
+            aa=a.loc[(a['level'] == i)]
+            sns.distplot(aa['ERA'],label=i,bins=10)
+        plt.legend()
+for i in range(30,35,5):
+    heatmap(i)
+    
+'''
+每年BB9 K9 對ERA 熱圖
+'''
+def heatmap(ip):
+    plt.figure()
+    plt.subplots_adjust(wspace =1, hspace =0.5)
+    for i in range(0,9):
+        a=d1.get_group(Year[i])
+        a=a[a['IP'] > ip] #選取IP大於20的值
+        a=a[np.abs(a['ERA']-a['ERA'].mean())<=(3*a['ERA'].std())]
+        x = a['BB/9']
+        y = a['K/9']
+        z = a['ERA']
+        levels = [2, 3, 4, 5, 6 ,7 ,8 ,9] 
+        ax = plt.gca() 
+        ax.set_aspect('equal') 
+        ax = plt.subplot(3,3,i+1)
+        CS = ax.tricontourf(x, y, z, levels, cmap=plt.get_cmap('jet')) 
+        cbar = plt.colorbar(CS, ticks=np.sort(np.array(levels)),ax=ax, orientation='vertical', shrink=.75, pad=.09, aspect=40,fraction=0.05) 
+        cbar.ax.set_xticklabels(list(map(str,np.sort(np.array(levels))))) # horizontal colorbar 
+        cbar.ax.tick_params(labelsize=15) 
+        plt.title('ERA '+str(Year[i])+' coff: '+str(BBCF[i])) 
+        plt.xlabel('BB/9') 
+        plt.ylabel('K/9') 
+for i in range(25,40,5):
+    heatmap(i)
+
+
+'''
+ERA平均對四大板塊 回歸線
+'''
+#普通分群
+alpha=[]
+beta=[]
+for i in range(1,5):
+    d_g_m=d.groupby(['YEAR','level']).mean()
+    d_g_m=d_g_m.reset_index()
+    d_g_m1=d_g_m[d_g_m['level']==i]
+    x=d_g_m1['BBCF'].values.reshape(-1, 1)    
+    y=d_g_m1['ERA'].values.reshape(-1, 1)    
+    lrModel = LinearRegression()  
+    lrModel.fit(x, y)  
+    a = lrModel.intercept_[0]
+    b = lrModel.coef_[0][0]
+    alpha.append(a)
+    beta.append(b)
+x = np.linspace(0.54,0.58,4)
+for i in range(0,4):
+    yline=beta[i]*x+alpha[i]
+    plt.plot(x,yline,label='level'+str(i+1))
+    plt.legend()
+
+'''
+加入滾飛分群
+'''
+for i in range(1,5):
+    d.loc[(d['level'] == i) & (d['G/F'] >= 1.13), 'level(GF)'] = 2
+    d.loc[(d['level'] == i) & (d['G/F'] < 1.13) &(d['G/F'] > 0.93), 'level(GF)'] = 1
+    d.loc[(d['level'] == i) & (d['G/F'] <= 0.93), 'level(GF)'] = 0
+'''
+不同類型投手0,1,2 9年總和 直方圖
+'''    
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)    
+def heatmap(ip):     
+        a=d[d['IP'] > ip] #選取IP大於20的值     
+        for i in (0,2,1):
+            aa=a.loc[(a['level(GF)'] == i)]
+            sns.distplot(aa['ERA'],label=i)
+        plt.legend()
+for i in range(30,35,5):
+    heatmap(i)   
+'''
+不同類型投手0,1,2 9年分開 直方圖
+'''    
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)    
+def heatmap(ip):
+    for i in range(0,9):
+        dd=d.groupby('YEAR')
+        a=dd.get_group(Year[i])      
+        a=a[a['IP'] > ip] #選取IP大於20的值     
+        plt.subplot(3,3,i+1)
+        for i in (0,1,2):
+            aa=a.loc[(a['level(GF)'] == i)]
+            sns.distplot(aa['ERA'],label=i,bins=10)
+        plt.legend()
+for i in range(30,35,5):
+    heatmap(i)   
+    
+'''
+BB/9 K/9 加上G/F
+'''
+###小提琴 分成0 1 2三種
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    sns.violinplot(x='level',y='ERA',hue='level(GF)',data=a)
+
+###相形圖 分成0 1 2三種
+plt.figure()
+plt.subplots_adjust(wspace =1, hspace =0.5)
+for i in range(0,9):
+    a=d1.get_group(Year[i])
+    ax1 = plt.subplot(3,3,i+1)
+    sns.boxplot(x='level',y='ERA',hue='level(GF)',data=a)
+
+'''
+不同類型投手012 BB/9 K/9熱圖
+'''
+def heatmap(ip):
+    plt.figure()
+    plt.subplots_adjust(wspace =1, hspace =0.5)
+    for i in range(0,9):
+        a=d1.get_group(Year[i])
+        a=a[a['IP'] > ip] #選取IP大於20的值
+        a=a.groupby('level(GF)')
+        a=a.get_group(1)
+        x = a['BB/9']
+        y = a['K/9']
+        z = a['ERA']
+        levels = [2, 3, 4, 5, 6 ,7 ,8 ,9] 
+        ax = plt.gca() 
+        ax.set_aspect('equal') 
+        ax = plt.subplot(3,3,i+1)
+        CS = ax.tricontourf(x, y, z, levels, cmap=plt.get_cmap('jet')) 
+        cbar = plt.colorbar(CS, ticks=np.sort(np.array(levels)),ax=ax, orientation='vertical', shrink=.75, pad=.09, aspect=40,fraction=0.05) 
+        cbar.ax.set_xticklabels(list(map(str,np.sort(np.array(levels))))) # horizontal colorbar 
+        cbar.ax.tick_params(labelsize=15) 
+        plt.title('ERA '+str(Year[i])+' coff: '+str(BBCF[i])) 
+        plt.xlabel('BB/9') 
+        plt.ylabel('K/9') 
+for i in range(30,35,5):
+    heatmap(i)
