@@ -1,0 +1,151 @@
+import pandas as pd #輸入pandas這個
+import matplotlib.pyplot as plt
+import os as os
+import numpy as np
+# %matplotlib 
+from scipy import signal
+from scipy.fftpack import fft,ifft
+import pywt
+import scipy.io.wavfile as wav
+import scipy.signal as signal
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+import matplotlib.dates as mdates
+import sys
+import matplotlib.ticker as ticker
+from sklearn.linear_model import LinearRegression
+aaa=pd.DataFrame()
+bbb=pd.DataFrame()
+
+max_all=pd.DataFrame()
+min_all=pd.DataFrame()
+
+
+
+    
+src_dir=("E:\\user\\Desktop\\code new\\earthquake")
+os.chdir(src_dir)
+filelist = os.listdir() #將檔案寫進
+station=['ALSB','CHKB','EASB','ECLB','FULB','HSNB','HSNH','LAYB','MASB','MATB','PHUB','PTSB','RLNB','SBCB','SCZB','SLBB','TAIH','TWGB','TWMB','VCHM','VWUC','WFSB','WGKB','WLCB','WLGB','WLTB','WSSB']
+
+
+
+for j in filelist:
+    if "BAT_data" in j:
+        print(j)   
+        Data=pd.read_table(src_dir + "\\" + j)
+        z=list(Data)
+        zz=pd.DataFrame(z)
+        Data.rename(columns={ Data.columns[0]: "A" }, inplace=True)
+        zz.rename(columns={ zz.columns[0]: "A" }, inplace=True)
+        df=zz.append(Data)
+        df=df['A'].str.rsplit('  ',47,expand=True)
+        df.drop([0,3,5,8,9,11,14,16,19,20,21,27,29,31,32,33,34,45,46], axis=1, inplace=True)
+        df=df.astype(float)
+        df=df.rename({1:'A',2:'ALSB',4:'CHKB',6:'EASB',7:'ECLB',10:'FULB',12:'HSNB',13:'HSNH',15:'LAYB',17:'MASB',18:'MATB',22:'PHUB',23:'PTSB',24:'RLNB',25:'SBCB',26:'SCZB',28:'SLBB',30:'TAIH',35:'TWGB',36:'TWMB',37:'VCHM',38:'VWUC',39:'WFSB',40:'WGKB',41:'WLCB',42:'WLGB',43:'WLTB',44:'WSSB'}, axis='columns').copy()#將欄位換成time的名稱
+        df.drop(['A'], axis=1, inplace=True)
+number=list(range(1,46))
+
+"""
+資料處理
+"""
+new_index_e=pd.date_range(l+k+j+' 00:00:00', end= le+ke+je+' 23:59:59', freq='S')#設置新的index
+finale1= bbb.reset_index().set_index(new_index_e) #重新設置index
+finale1.drop(['index'], axis =1, inplace = True) #將time drop掉
+finale1=finale1[l+k+j+' 13:00:00':le+ke+je+' 15:00:00'] #區段時間
+finale1=finale1.interpolate(kind='quadratic') #內插
+finale1.drop(['YL'], axis =1, inplace = True) #將time drop掉
+"""
+濾波
+"""
+b, a = signal.butter(1, [0.00006,0.0002], 'bandpass') #濾波 fs=1 採樣頻率 2*最低頻率/fs=0.006  2*最高頻率/fs=0.02
+filtedData = signal.filtfilt(b, a, df, axis=0)   #data为要过滤的信号
+filtedData=pd.DataFrame(filtedData)
+filtedData=filtedData.rename({2:'YL' ,0:'TW',1:'TT',3:'HC',4:'HL',7:'SL',8:'LY',9:'NC',6:'YH',10:'KM',5:'PT'}, axis='columns').copy()#將欄位換成time的名稱
+"""
+濾波圖
+"""
+plt.subplots_adjust(wspace =0.3, hspace =1)#调整子图间距
+def drawing(i):
+    e=df[station[i]]
+            #開啟一新圖並且設置圖片大小
+    plt.subplot(9, 3, number[i]) #設置圖片位置
+
+    b, a = signal.butter(1, [0.00006,0.0002], 'bandpass') #濾波
+    filtedData = signal.filtfilt(b, a, e, axis=0) #data为要过滤的信号
+    filtedData=filtedData*10000
+    filtedDataAbs =abs(filtedData)
+    filtedData=pd.DataFrame(filtedData)
+    filtedDataAbs =pd.DataFrame(filtedDataAbs)
+    #fig, ax = plt.subplots(1,1)
+    plt.plot(filtedData)
+    #plt.ylim((-25, 25))
+    tick_spacing =100
+    #ax.xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
+    #plt.xlim((0, 50000))
+    plt.title(station[i]) #測站名稱
+    plt.vlines(27000, -25,25, colors = "c", linestyles = "dashed")    
+    plt.ylabel('nT')
+    plt.xlabel('Time (second)')
+for i in range(0,27):
+    drawing(i)
+"""
+原圖
+"""
+plt.subplots_adjust(wspace =0.3, hspace =1.5)#调整子图间距
+def drawing(i):
+    e=df[station[i]]
+    plt.subplot(9, 3, number[i]) #設置圖片位置
+    plt.plot(e)
+    plt.title(station[i]) #測站名稱
+    plt.ylabel('a')
+    plt.ticklabel_format(useOffset=False,style='plain', axis='y')
+    #plt.title(station[i],fontsize=16) #測站名稱
+    plt.xlabel('Time (second)')
+for i in range(0,27):
+    drawing(i)
+
+yy=fft(bbb['TW'])      #快速傅立葉變換
+yreal = yy.real    # 獲取實數部分
+yimag = yy.imag    # 獲取虛數部分
+ 
+yf=abs(fft(filtedData['TW']))    # 取絕對值
+yf1=abs(fft(filtedData['TW']))   #歸一化處理
+yf2 = yf1[range(int(2701/2))] #由於對稱性，只取一半區間
+plt.plot(yf2)
+
+"""
+時頻圖
+"""
+plt.figure(figsize=(200,1))
+plt.subplots_adjust(wspace =0, hspace =1)#调整子图间距
+def drawing(i):
+    f,t,Zxx=signal.stft(df[station[i]],fs = 100 ,window ='hann',nperseg = 256,noverlap = None,nfft = None,detrend = False,return_onesided = True,boundary ='zeros',padded = True,axis = -1) #STFT 時頻
+    ax = plt.subplot(9, 3, number[i]) #設置圖片位置
+    ax2 = ax.twinx()
+    ax2.set_ylabel(station[i], color='g',rotation=0, labelpad=20) #測站名稱 右標題  rotation標題轉水平 labelpad 與圖間距
+    ax.set_ylabel('Freq', color='b') #左標題
+    ax.set_yticks([])
+    #plt.ylabel(station[i]
+    plt.ylim((0, 0.5))
+    plt.pcolormesh(t, f, np.abs(Zxx),cmap=plt.get_cmap('rainbow'),shading='gouraud') #畫時頻圖，t時間 f頻率 Zxx振幅大小 cmap熱圖顏色 shading平滑化
+    #plt.colorbar() 
+    #ax2.set_ylabel('Freq')
+for i in range(0,27):
+    drawing(i)
+
+distance=[2644.52,2703.68,2632.6,2531.38,2531.38,2705.17,2523.74,2737.66,2582.78,2649.95,2536.17,2489.7,2735.25,2677.8,2725.33,2771.1,2640.62,2455.4,2649.45,2766.52,2685.28,2511.48,2751.64]
+time=[246,235,226,230,230,247,130,240,245,191,181,209,212,243,242,236,248,227,208,252,258,228,270]
+D=pd.DataFrame(distance)
+T=pd.DataFrame(time)
+T=T-54
+model = LinearRegression()
+model.fit(T,D)
+plt.scatter(T,D, color='blue', label="data") #训练数据散点图
+D_pred = model.predict(T)                           #训练数据的预测值
+plt.plot(T,D_pred, color='black', label='y=1.57176x+2232.78') #绘制最佳拟合线
+plt.legend(loc=2,fontsize=20)
+plt.xlabel("Time(s)",fontsize=20)
+plt.ylabel("Distance(km)",fontsize=15)
+
+
+a, b =model.coef_, model.intercept_
