@@ -1,8 +1,5 @@
-# 工作經驗代碼
-You can use the [editor on GitHub](https://github.com/john20118/MyPortfolio/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
-
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
+# 工作代碼整理
+以下列舉一些工作上所用到之代碼
 
 ## 與TDEngine互動並產生CSV檔
 
@@ -285,6 +282,7 @@ dag = DAG(
     schedule_interval='0 */1 * * *'
 )
 
+###檢查資料有無回傳###
 def reply(**context):
     ###資料表名稱###
     field={'107S02 合鑫':{'field_346_':['inv_1','inv_2','inv_3','inv_4','inv_5','inv_6','inv_7','inv_8','inv_9','inv_10','inv_1_inv','gas_engine_error_code'],'_kwh':[]},
