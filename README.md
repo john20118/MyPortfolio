@@ -51,7 +51,132 @@ df1.to_csv('data.csv')
 ```
 
 For more details see [Basic writing and formatting syntax](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax).
-### Jekyll Themes
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/john20118/MyPortfolio/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+### 與TDEngine互動計算數據，並且利用Airflow自動化
+##### 目的:將從TDEngine中撈回的資料計算，並利用Airflow自動排程在將計算過的資料傳回資料庫
+```markdown
+from datetime import datetime, timedelta
+import logging
+import requests
+import json
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+###Airflow參數###
+default_args = {
+    'owner': 'Bo Han Chen',
+    'start_date': datetime(2021, 10, 28, 0, 0),
+    'retries': 4,
+    'retry_delay': timedelta(minutes=1)
+}
+dag = DAG(
+    dag_id='110S02',
+    description='my dag',
+    default_args=default_args,
+    schedule_interval='*/15 * * * *'
+)
+url = 'http://xx.xx.xx.xx:xxxx/rest/sql'
+headers={'Authorization': '******','Content-Type': '****'}
+"""
+六和二期總發電量
+"""
+def total_kwh(**context):
+    d1 =datetime.today().strftime("%Y-%m-%d %H:%M:%S")   
+    field = ['field_277_inv_h5_2sw','field_277_inv_h5_2','field_284_inv_h5_2']
+    field_into = ['field_277_inv_total_kwh_sw','field_277_inv_total_kwh_st','field_284_inv_total_kwh_2']
+    inv_num = [12,6,4]
+    for i in range(0,3):
+        total_kwh = 0
+        for j in range(1,inv_num[i]+1):
+            sql = f'select last(value) from {field[i]}_{str(j)}_dc_kwh' 
+            try:
+                response = requests.get(url,headers=headers, data=sql)
+            except Exception as e:
+                logging.error(e)
+            r = json.loads(response.text, strict=False) #讀取json檔
+            kwh = r['data'][0][0] #拉出DATA
+            total_kwh += kwh
+        sql=f'insert into db.{field_into[i]} VALUES(\'{str(d1)}\',{total_kwh})'
+        try:
+            response = requests.get(url,headers=headers, data=sql)
+        except Exception as e:
+            logging.error(e)     
+"""
+六和二期每日發電量
+"""
+def today_kwh(**context):
+    field = ['field_277_inv_h5_2sw','field_277_inv_h5_2','field_284_inv_h5_2']
+    field_into = ['field_277_inv_today_kwh_sw','field_277_inv_today_kwh_st','field_284_inv_today_kwh_2']
+    inv_num = [12,6,4]
+    d1 =datetime.today().strftime("%Y-%m-%d %H:%M:%S")       
+    for i in range(0,3):
+        today_kwh = 0
+        for j in range(1,inv_num[i]+1):
+            if datetime.today().hour >= 16:
+                d2 =datetime.today().strftime("%Y-%m-%d") #目前時間 並且轉換格式
+                sql = f'select last(value) from {field[i]}_{str(j)}_today_kw where ts > \'{d2} 16:00:00\''
+            else:
+                d2 = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+                sql = f'select last(value) from {field[i]}_{str(j)}_today_kw where ts > \'{d2} 16:00:00\'' 
+            try:
+                response = requests.get(url,headers=headers, data=sql)
+            except Exception as e:
+                logging.error(e)
+            try:
+                r = json.loads(response.text, strict=False) #讀取json檔
+                kwh = r['data'][0][0] #拉出DATA
+                today_kwh += kwh
+                print(today_kwh)
+            except:
+                pass
+        sql=f'insert into db.{field_into[i]} VALUES(\'{str(d1)}\',{today_kwh})'
+        try:
+            response = requests.get(url,headers=headers, data=sql)
+        except Exception as e:
+            logging.error(e) 
+"""
+六和二期總WATT
+"""
+def today_watt(**context):
+    d1 =datetime.today().strftime("%Y-%m-%d %H:%M:%S")   
+    field = ['field_277_inv_h5_2sw','field_277_inv_h5_2','field_284_inv_h5_2']
+    field_into = ['field_277_inv_total_watt_sw','field_277_inv_total_watt_st','field_284_inv_total_watt_2']
+    inv_num = [12,6,4]  
+    for i in range(0,3):
+        total_watt = 0
+        for j in range(1,inv_num[i]+1):
+            sql = f'select last(value) from {field[i]}_{str(j)}_dc_watt' 
+            try:
+                response = requests.get(url,headers=headers, data=sql)
+            except Exception as e:
+                logging.error(e)
+            r = json.loads(response.text, strict=False) #讀取json檔
+            watt = r['data'][0][0] #拉出DATA
+            total_watt += watt
+        sql=f'insert into db.{field_into[i]} VALUES(\'{str(d1)}\',{total_watt})'
+        try:
+            response = requests.get(url,headers=headers, data=sql)
+        except Exception as e:
+            logging.error(e)
+###以何種形式跑代碼###
+total_kwh = PythonOperator(
+    task_id='total_kwh',
+    python_callable=total_kwh,
+    provide_context=True,
+    dag=dag
+)           
+today_kwh = PythonOperator(
+    task_id='today_kwh',
+    python_callable=today_kwh,
+    provide_context=True,
+    dag=dag
+)
+today_watt = PythonOperator(
+    task_id='today_watt',
+    python_callable=today_watt,
+    provide_context=True,
+    dag=dag
+)
+###代碼順序###
+total_kwh > today_kwh > today_watt
+```
 ### Support or Contact
 Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
