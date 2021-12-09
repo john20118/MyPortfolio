@@ -46,7 +46,7 @@ df1 = df1.reset_index()
 ###將UTC+0轉回UTC+8
 df1[0] = pd.to_datetime(df1[0]) + timedelta(hours=8)
 df1 = df1.set_index(df1[0]).drop(columns=[0])
-###輸出CSV黨###
+###輸出CSV檔###
 df1.to_csv('data.csv')
 ```
 
