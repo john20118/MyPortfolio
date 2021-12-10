@@ -683,4 +683,8 @@ while True :
 ```
 # 其他作品
 ### [地震與不同訊號時間差](https://github.com/john20118/MyPortfolio/blob/master/%E5%9C%B0%E9%9C%87%E8%88%87%E4%B8%8D%E5%90%8C%E5%84%80%E5%99%A8%E4%BF%A1%E8%99%9F.pdf)
-#### `從磁場、次聲波、都普勒與地震波來觀察地震發生後不同訊號反應時間差`
+#### `從濾波過後的磁場、次聲波、都普勒與地震波來觀察地震發生後不同訊號反應時間差`
+### [三分量磁力儀來向](https://github.com/john20118/MyPortfolio/blob/master/%E4%B8%89%E5%88%86%E9%87%8F%E7%A3%81%E5%8A%9B%E5%84%80%E4%BE%86%E5%90%91.pdf)
+#### `分析三分量磁力儀X與Y來向，經過濾波後觀察是否能透過X與Y分量來判斷地震方位`
+### [棒球恢復係數對ERA(防禦率)之影響](https://github.com/john20118/MyPortfolio/blob/master/AI%E8%B3%87%E6%96%99%E7%A7%91%E5%AD%B8%E4%BA%BA%E6%89%8D%E5%B0%88%E9%A1%8C%E5%A0%B1%E5%91%8A(%E6%A3%92%E7%90%83).pdf)
+#### `從各種投手數據來觀察棒球恢復係數是否會影響投手表現`
