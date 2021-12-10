@@ -3,7 +3,7 @@
 
 ## 與TDEngine互動並產生CSV檔
 
-#### `將從TDEngine中撈回的資料整合，並輸出CSV檔提供給客戶`
+* #### `將從TDEngine中撈回的資料整合，並輸出CSV檔提供給客戶`
 
 ```markdown
 from datetime import datetime, timedelta
@@ -47,7 +47,7 @@ df1 = df1.set_index(df1[0]).drop(columns=[0])
 df1.to_csv('data.csv')
 ```
 ## 與TDEngine互動計算數據，並且利用Airflow自動化
-#### `將從TDEngine中撈回的資料計算，並利用Airflow自動排程在將計算過的資料傳回資料庫`
+* #### `將從TDEngine中撈回的資料計算，並利用Airflow自動排程在將計算過的資料傳回資料庫`
 ```markdown
 from datetime import datetime, timedelta
 import logging
@@ -174,7 +174,7 @@ today_watt = PythonOperator(
 total_kwh > today_kwh > today_watt
 ```
 ## 登入並爬取監控網站資料，傳回資料庫
-#### `與需要登入之監控網站互動，爬取其發電資料並且傳回資料庫`
+* #### `與需要登入之監控網站互動，爬取其發電資料並且傳回資料庫`
 ```markdown
 import requests
 import json
@@ -249,7 +249,7 @@ for i in range(0,17):
         logging.error(e)
 ```
 ## 檢查回傳狀況，若有異常傳訊息給Telegram
-#### `檢查所有案場之資料，並因應不同案場狀況來調整代碼。如有資料無回傳則回傳給Telegram`
+* #### `檢查所有案場之資料，並因應不同案場狀況來調整代碼。如有資料無回傳則回傳給Telegram`
 ```markdown
 # -*- coding: utf-8 -*-
 """
@@ -415,7 +415,7 @@ send_message = PythonOperator(
 reply >> send_message
 ```
 ## 與MySQL互動計算發電時數，並計算接下來所需維護之時間
-#### `從MySQL中撈回發電時數，並且根據所需來計算下幾次需要維護之日期，以提供給頁面呈現讓同仁得知`
+* #### `從MySQL中撈回發電時數，並且根據所需來計算下幾次需要維護之日期，以提供給頁面呈現讓同仁得知`
 ```markdown
 import pymysql
 import pandas as pd
@@ -547,7 +547,7 @@ next_run_datetime
 
 ```
 ## 利用FTP來實現定時上傳資料
-#### `此代碼寫入監控軟體中，使用FTP來自動上傳已整理之資料到客戶電腦，並根據要求給予制式化檔名`
+* #### `此代碼寫入監控軟體中，使用FTP來自動上傳已整理之資料到客戶電腦，並根據要求給予制式化檔名`
 ```markdown
 import os
 from ftplib import FTP  #載入ftp模組
@@ -641,7 +641,7 @@ def ftp_upload(target_ip, target_account, target_password, local_file_path):
 ```
 
 ## 利用[android platform toolsm](https://developer.android.com/studio/releases/platform-tools)與手機互動來實現自動截圖，
-#### `使用android platform toolsm來實現截圖，利用python與CMD互動來操作手機並且自動儲存截圖傳回電腦`
+* #### `使用android platform toolsm來實現截圖，利用python與CMD互動來操作手機並且自動儲存截圖傳回電腦`
 ```markdown
 import os
 import time
@@ -683,8 +683,8 @@ while True :
 ```
 # 其他作品
 ### [地震與不同訊號時間差](https://github.com/john20118/MyPortfolio/blob/master/%E5%9C%B0%E9%9C%87%E8%88%87%E4%B8%8D%E5%90%8C%E5%84%80%E5%99%A8%E4%BF%A1%E8%99%9F.pdf)
-#### `從濾波過後的磁場、次聲波、都普勒與地震波來觀察地震發生後不同訊號反應時間差`
+* #### `從濾波過後的磁場、次聲波、都普勒與地震波來觀察地震發生後不同訊號反應時間差`
 ### [三分量磁力儀來向](https://github.com/john20118/MyPortfolio/blob/master/%E4%B8%89%E5%88%86%E9%87%8F%E7%A3%81%E5%8A%9B%E5%84%80%E4%BE%86%E5%90%91.pdf)
-#### `分析三分量磁力儀X與Y來向，經過濾波後觀察是否能透過X與Y分量來判斷地震方位`
+* #### `分析三分量磁力儀X與Y來向，經過濾波後觀察是否能透過X與Y分量來判斷地震方位`
 ### [棒球恢復係數對ERA(防禦率)之影響](https://github.com/john20118/MyPortfolio/blob/master/AI%E8%B3%87%E6%96%99%E7%A7%91%E5%AD%B8%E4%BA%BA%E6%89%8D%E5%B0%88%E9%A1%8C%E5%A0%B1%E5%91%8A(%E6%A3%92%E7%90%83).pdf)
-#### `從各種投手數據來觀察棒球恢復係數是否會影響投手表現`
+* #### `從各種投手數據來觀察棒球恢復係數是否會影響投手表現`
