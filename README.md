@@ -680,3 +680,7 @@ while True :
         time.sleep(3)
     print('等待下一個10分')
     time.sleep(600)
+```
+# 其他作品
+### [地震與不同訊號時間差](https://github.com/john20118/MyPortfolio/blob/master/%E5%9C%B0%E9%9C%87%E8%88%87%E4%B8%8D%E5%90%8C%E5%84%80%E5%99%A8%E4%BF%A1%E8%99%9F.pdf)
+#### `從磁場、次聲波、都普勒與地震波來觀察地震發生後不同訊號反應時間差`
